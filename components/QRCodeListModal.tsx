@@ -138,140 +138,35 @@ function QRCodeCard({
   qrCode: QRCodeItem; 
   onDownload: (qrCode: QRCodeItem) => void;
 }) {
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "success" | "unavailable">("idle");
-
-  async function handleCopyImage() {
-    setCopyStatus("copying");
-    
-    try {
-      // Check if clipboard API is available
-      if (!navigator.clipboard || !window.ClipboardItem) {
-        setCopyStatus("unavailable");
-        setTimeout(() => setCopyStatus("idle"), 3000);
-        return;
-      }
-
-      // Convert base64 to blob
-      const response = await fetch(qrCode.qrImageBase64);
-      const blob = await response.blob();
-      
-      // Copy to clipboard
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          [blob.type]: blob
-        })
-      ]);
-      
-      setCopyStatus("success");
-      setTimeout(() => setCopyStatus("idle"), 2000);
-    } catch (err) {
-      console.error("Failed to copy image:", err);
-      setCopyStatus("unavailable");
-      setTimeout(() => setCopyStatus("idle"), 3000);
-    }
-  }
-
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden hover:border-purple-500/30 transition group">
-      {/* QR Image - Clickable to copy */}
-      <div 
-        className="bg-white p-4 flex items-center justify-center cursor-pointer relative group/image"
-        onClick={handleCopyImage}
-        title="Nhấn để copy ảnh"
-      >
+    <div 
+      className="rounded-xl border border-white/10 bg-white/5 overflow-hidden hover:border-purple-500/30 transition group cursor-pointer"
+      onClick={() => onDownload(qrCode)}
+      title="Nhấn để tải xuống"
+    >
+      {/* QR Image - Clickable to download */}
+      <div className="bg-white p-4 flex items-center justify-center relative group/image">
         <img 
           src={qrCode.qrImageBase64} 
           alt={`QR Code for ${qrCode.name}`}
           className="w-full h-auto max-w-[200px] transition group-hover/image:opacity-90"
         />
         
-        {/* Copy overlay hint */}
+        {/* Download overlay hint */}
         <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/image:bg-black/10 transition">
-          <div className="opacity-0 group-hover/image:opacity-100 transition bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg">
-            {copyStatus === "copying" ? "Đang copy..." : 
-             copyStatus === "success" ? "✓ Đã copy!" : 
-             copyStatus === "unavailable" ? "Không khả dụng" :
-             "Nhấn để copy ảnh"}
+          <div className="opacity-0 group-hover/image:opacity-100 transition bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg flex items-center gap-1.5">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Nhấn để tải xuống
           </div>
         </div>
       </div>
 
       {/* Info */}
-      <div className="p-4 space-y-3">
-        <div>
-          <h3 className="font-semibold text-white truncate">{qrCode.name}</h3>
-          <p className="text-xs text-white/40 font-mono truncate mt-1">{qrCode.cameraId}</p>
-        </div>
-
-        <div className="text-xs text-white/30">
-          {new Date(qrCode.createdAt).toLocaleString("vi-VN")}
-        </div>
-
-        {/* Clipboard unavailable notice */}
-        {copyStatus === "unavailable" && (
-          <div className="text-xs text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-lg px-2 py-1.5">
-            💡 Copy ảnh cần HTTPS. Vui lòng dùng "Tải xuống"
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => onDownload(qrCode)}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 
-              border border-purple-500/30 px-3 py-2 text-xs font-medium text-purple-300 transition"
-            title="Tải xuống file"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Tải xuống
-          </button>
-          <button
-            onClick={handleCopyImage}
-            disabled={copyStatus === "copying"}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 
-              border border-blue-500/30 px-3 py-2 text-xs font-medium text-blue-300 transition
-              disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Copy ảnh"
-          >
-            {copyStatus === "success" ? (
-              <>
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Đã copy!
-              </>
-            ) : copyStatus === "unavailable" ? (
-              <>
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Không khả dụng
-              </>
-            ) : (
-              <>
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                Copy ảnh
-              </>
-            )}
-          </button>
-          <button
-            onClick={() => navigator.clipboard.writeText(qrCode.url)}
-            className="rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 
-              text-white/60 hover:text-white transition"
-            title="Copy URL"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-          </button>
-        </div>
+      <div className="p-4">
+        <h3 className="font-semibold text-white truncate text-center">{qrCode.name}</h3>
       </div>
     </div>
   );

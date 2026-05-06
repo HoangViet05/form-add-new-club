@@ -51,7 +51,7 @@ export default function Home() {
         <DeviceForm onSuccess={handleSuccess} />
       </main>
 
-      <StandaloneQR />
+      <StandaloneQR onQRSaved={handleSuccess} />
 
       {/* QR Code List Modal */}
       <QRCodeListModal 

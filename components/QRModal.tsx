@@ -7,29 +7,37 @@ interface Props {
   cameraId: string;
   clubName: string;
   onClose: () => void;
+  onSaved?: () => void;
 }
 
-export default function QRModal({ cameraId, clubName, onClose }: Props) {
+export default function QRModal({ cameraId, clubName, onClose, onSaved }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const url = `https://academy.arenabilliard.com?cameraId=${cameraId}`;
   const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "success">("idle");
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    
     QRCode.toCanvas(canvasRef.current, url, {
       width: 280,
       margin: 2,
       color: { dark: "#0f172a", light: "#ffffff" },
+    }).then(() => {
+      // Tự động lưu QR code vào database sau khi tạo xong
+      if (!saved && canvasRef.current) {
+        saveQRCode();
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
-  async function handleDownload() {
+  async function saveQRCode() {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || saved) return;
     
     const imageBase64 = canvas.toDataURL("image/png");
     
-    // Lưu QR code vào database
     try {
       await fetch("/api/qrcodes", {
         method: "POST",
@@ -41,9 +49,18 @@ export default function QRModal({ cameraId, clubName, onClose }: Props) {
           url,
         }),
       });
+      setSaved(true);
+      onSaved?.(); // Thông báo đã lưu thành công
     } catch (err) {
       console.error("Failed to save QR code:", err);
     }
+  }
+
+  async function handleDownload() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const imageBase64 = canvas.toDataURL("image/png");
     
     // Tải xuống file
     const link = document.createElement("a");

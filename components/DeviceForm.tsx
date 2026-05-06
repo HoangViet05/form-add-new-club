@@ -407,12 +407,12 @@ export default function DeviceForm({ onSuccess }: Props) {
         cameraId={qrData.cameraId}
         clubName={qrData.clubName}
         onClose={() => setQrData(null)}
+        onSaved={onSuccess}
       />
     )}
   </>
   );
 }
-
 // ── Helper components ─────────────────────────────────────────────────────────
 
 function Spinner({ className = "" }: { className?: string }) {

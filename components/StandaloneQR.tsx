@@ -3,7 +3,11 @@
 import { useState } from "react";
 import QRModal from "./QRModal";
 
-export default function StandaloneQR() {
+interface Props {
+  onQRSaved?: () => void;
+}
+
+export default function StandaloneQR({ onQRSaved }: Props) {
   const [showInput, setShowInput] = useState(false);
   const [cameraId, setCameraId] = useState("");
   const [qrData, setQrData] = useState<{ cameraId: string; clubName: string } | null>(null);
@@ -131,6 +135,7 @@ export default function StandaloneQR() {
           cameraId={qrData.cameraId}
           clubName={qrData.clubName}
           onClose={() => setQrData(null)}
+          onSaved={onQRSaved}
         />
       )}
     </>

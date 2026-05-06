@@ -37,6 +37,9 @@ export default function TableCornerPicker({ frameBase64, onConfirm, onCancel }: 
   const lastPan         = useRef<{ x: number; y: number } | null>(null);
   const pinchRef        = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const pointers        = useRef<Map<number, { x: number; y: number }>>(new Map());
+  // Which pointer is doing corner drag / pan
+  const dragPointerId   = useRef<number | null>(null);
+  const panPointerId    = useRef<number | null>(null);
 
   // ── Sync xformRef ──────────────────────────────────────────────────────────
   useEffect(() => { xformRef.current = xform; }, [xform]);
@@ -157,13 +160,6 @@ export default function TableCornerPicker({ frameBase64, onConfirm, onCancel }: 
 
   // ── Pointer events ─────────────────────────────────────────────────────────
   function getClientXY(e: React.PointerEvent): { x: number; y: number } {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    // canvas CSS size vs logical size ratio
-    const cssW = rect.width;
-    const cssH = rect.height;
-    const logW = canvasSize.w * xformRef.current.scale;
-    const logH = canvasSize.h * xformRef.current.scale;
-    // We render via CSS transform, so clientX/Y relative to viewport is fine
     return { x: e.clientX, y: e.clientY - HEADER_H };
   }
 
@@ -171,8 +167,8 @@ export default function TableCornerPicker({ frameBase64, onConfirm, onCancel }: 
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY - HEADER_H });
 
+    // If 2 pointers → start pinch, cancel any drag/pan
     if (pointers.current.size === 2) {
-      // Start pinch
       const pts = [...pointers.current.values()];
       const dx = pts[1].x - pts[0].x;
       const dy = pts[1].y - pts[0].y;
@@ -182,24 +178,29 @@ export default function TableCornerPicker({ frameBase64, onConfirm, onCancel }: 
         cy: (pts[0].y + pts[1].y) / 2,
       };
       draggingCorner.current = null;
+      dragPointerId.current = null;
       lastPan.current = null;
+      panPointerId.current = null;
       return;
     }
 
+    // Single pointer — check if near corner
     const { x, y } = getClientXY(e);
     const idx = findNearestCorner(x, y);
     if (idx !== null) {
       draggingCorner.current = idx;
+      dragPointerId.current = e.pointerId;
       setActiveIdx(idx);
     } else {
       lastPan.current = { x, y };
+      panPointerId.current = e.pointerId;
     }
   }
 
   function onPointerMove(e: React.PointerEvent) {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY - HEADER_H });
 
-    // Pinch zoom
+    // Pinch zoom (2 pointers)
     if (pointers.current.size === 2 && pinchRef.current) {
       const pts = [...pointers.current.values()];
       const dx = pts[1].x - pts[0].x;
@@ -226,15 +227,15 @@ export default function TableCornerPicker({ frameBase64, onConfirm, onCancel }: 
 
     const { x, y } = getClientXY(e);
 
-    // Drag corner
-    if (draggingCorner.current !== null) {
+    // Drag corner (only if this pointer started the drag)
+    if (draggingCorner.current !== null && dragPointerId.current === e.pointerId) {
       const [ix, iy] = clampToImage(...screenToImage(x, y));
       setCorners(prev => prev.map((c, i) => i === draggingCorner.current ? [ix, iy] : c));
       return;
     }
 
-    // Pan
-    if (lastPan.current) {
+    // Pan (only if this pointer started the pan)
+    if (lastPan.current && panPointerId.current === e.pointerId) {
       const dx = x - lastPan.current.x;
       const dy = y - lastPan.current.y;
       setXform(prev => {
@@ -248,10 +249,22 @@ export default function TableCornerPicker({ frameBase64, onConfirm, onCancel }: 
 
   function onPointerUp(e: React.PointerEvent) {
     pointers.current.delete(e.pointerId);
-    draggingCorner.current = null;
-    lastPan.current = null;
-    pinchRef.current = null;
-    setActiveIdx(null);
+
+    // Only clear drag/pan if THIS pointer was doing it
+    if (dragPointerId.current === e.pointerId) {
+      draggingCorner.current = null;
+      dragPointerId.current = null;
+      setActiveIdx(null);
+    }
+    if (panPointerId.current === e.pointerId) {
+      lastPan.current = null;
+      panPointerId.current = null;
+    }
+
+    // If we were pinching and now down to 1 pointer, end pinch
+    if (pointers.current.size < 2) {
+      pinchRef.current = null;
+    }
   }
 
   // Mouse wheel zoom

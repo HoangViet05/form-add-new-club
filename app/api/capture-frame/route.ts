@@ -23,9 +23,12 @@ export async function POST(request: NextRequest) {
 function captureFrame(rtspUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
+    
+    // Cho phép override ffmpeg path qua env variable
+    const ffmpegPath = process.env.FFMPEG_PATH || "ffmpeg";
 
     // ffmpeg: grab 1 frame, output as JPEG to stdout
-    const proc = spawn("ffmpeg", [
+    const proc = spawn(ffmpegPath, [
       "-rtsp_transport", "tcp",
       "-i", rtspUrl,
       "-frames:v", "1",
@@ -45,7 +48,9 @@ function captureFrame(rtspUrl: string): Promise<string> {
       resolve("data:image/jpeg;base64," + buffer.toString("base64"));
     });
 
-    proc.on("error", (err) => reject(new Error(`ffmpeg not found: ${err.message}`)));
+    proc.on("error", (err) => {
+      reject(new Error(`ffmpeg not found at "${ffmpegPath}". Please install ffmpeg or set FFMPEG_PATH env variable. Error: ${err.message}`));
+    });
 
     // 10s timeout
     setTimeout(() => {

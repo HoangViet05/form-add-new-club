@@ -1,6 +1,7 @@
 "use client";
 
 import DeviceForm from "@/components/DeviceForm";
+import StandaloneQR from "@/components/StandaloneQR";
 
 export default function Home() {
   return (
@@ -24,6 +25,8 @@ export default function Home() {
       <main className="mx-auto max-w-6xl px-4 py-8">
         <DeviceForm onSuccess={() => {}} />
       </main>
+
+      <StandaloneQR />
     </div>
   );
 }

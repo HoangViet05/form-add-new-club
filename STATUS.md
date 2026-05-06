@@ -31,11 +31,13 @@
 - Saves to `camera.tableCorners` in MongoDB
 
 ### 4. QR Code Generation
-- **✅ FIXED:** QR modal now stays open until user manually closes it
+- **✅ NEW:** Standalone QR generator button (floating bottom-right)
+- **✅ UPDATED:** QR modal no longer shows Camera ID or URL
 - Generates QR for: `https://academy.arenabilliard.com?cameraId=<camera._id>`
-- Displays camera ID (no URL shown per user request)
+- Auto-generates after device creation
+- Manual generation via floating button (input Camera ID)
 - Download QR as PNG
-- Form resets after 2s but QR modal persists
+- Form resets after 2s but QR modal persists until manually closed
 
 ### 5. Production Deployment
 - PM2 ecosystem configuration
@@ -43,6 +45,7 @@
 - Port 3002 configuration
 - Tailscale network access
 - Server: http://100.74.187.40:3002
+- **✅ FIXED:** ffmpeg path detection with FFMPEG_PATH env variable support
 
 ## 🏗️ Technical Stack
 
@@ -57,13 +60,14 @@
 
 ### Components
 - `components/DeviceForm.tsx` - Main form with auto-verification
-- `components/QRModal.tsx` - QR code display modal
+- `components/QRModal.tsx` - QR code display modal (no Camera ID/URL shown)
+- `components/StandaloneQR.tsx` - **NEW:** Floating QR generator button
 - `components/TableCornerPicker.tsx` - Interactive corner selection
 
 ### API Routes
 - `app/api/check-device/route.ts` - Device ID verification
 - `app/api/check-rtsp/route.ts` - RTSP connectivity check
-- `app/api/capture-frame/route.ts` - Frame capture from RTSP
+- `app/api/capture-frame/route.ts` - Frame capture from RTSP (with ffmpeg path detection)
 - `app/api/devices/route.ts` - Save to MongoDB
 
 ### Models
@@ -73,34 +77,66 @@
 ### Configuration
 - `ecosystem.config.js` - PM2 configuration (port 3002)
 - `deploy.sh` - Deployment automation script
+- `check-ffmpeg.sh` - **NEW:** ffmpeg installation checker
 - `.env.local` - Local environment variables
-- `.env.production.example` - Production env template
+- `.env.production.example` - Production env template (includes FFMPEG_PATH)
+
+### Documentation
+- `FFMPEG_INSTALL.md` - **NEW:** ffmpeg installation guide for server
 
 ## 🚀 Deployment Instructions
 
-1. **On Server:**
-   ```bash
-   cd ~/form-add-new-club  # or your project directory
-   git pull origin main     # if using git
-   ./deploy.sh
-   ```
+### 1. First Time Setup on Server
 
-2. **First Time Setup:**
-   - Copy `.env.production.example` to `.env.production`
-   - Fill in `MONGODB_URI` and `API_KEY`
-   - Ensure Node.js v18+ is installed
-   - Ensure ffmpeg is installed
-   - Run `pm2 update` if daemon version mismatch
+```bash
+# Cài đặt ffmpeg (bắt buộc cho table corner detection)
+sudo apt update
+sudo apt install -y ffmpeg
 
-3. **Access:**
-   - Local: http://localhost:3002
-   - Tailscale: http://100.74.187.40:3002
+# Kiểm tra ffmpeg
+which ffmpeg
+ffmpeg -version
+
+# Copy và cấu hình env
+cp .env.production.example .env.production
+nano .env.production
+# Điền: MONGODB_URI, API_KEY
+# Optional: FFMPEG_PATH nếu ffmpeg không trong PATH
+```
+
+### 2. Deploy
+
+```bash
+cd ~/form-add-new-club  # or your project directory
+git pull origin main
+./deploy.sh
+```
+
+### 3. Access
+
+- Local: http://localhost:3002
+- Tailscale: http://100.74.187.40:3002
 
 ## 🔧 Build Status
 
-✅ **Build:** Passing (no errors)
+✅ **Build:** Passing (1 warning về next.config.ts - không ảnh hưởng)
 ✅ **TypeScript:** No diagnostics
 ✅ **Deployment:** Configured for port 3002
+
+## 🐛 Troubleshooting
+
+### Lỗi: "ffmpeg not found"
+
+Xem hướng dẫn chi tiết trong `FFMPEG_INSTALL.md`
+
+**Quick fix:**
+```bash
+# Cài ffmpeg
+sudo apt install -y ffmpeg
+
+# Restart PM2
+pm2 restart arena-device-form
+```
 
 ## 📝 User Preferences
 
@@ -109,10 +145,20 @@
 - Simple status messages: "Xác minh thành công" / "Vui lòng kiểm tra lại"
 - No branchId/scoreboardId display in UI
 - QR modal persists until manually closed
-- No URL display in QR modal (only Camera ID)
+- **NEW:** No Camera ID or URL display in QR modal
+- **NEW:** Floating button for standalone QR generation
+
+## 🎯 Latest Changes (May 6, 2026)
+
+1. ✅ Added floating "Tạo QR Code" button (bottom-right, emerald green)
+2. ✅ Removed Camera ID display from QR modal
+3. ✅ Fixed ffmpeg path detection with FFMPEG_PATH env variable
+4. ✅ Added ffmpeg installation checker script
+5. ✅ Added comprehensive ffmpeg installation guide
 
 ## 🎯 Next Steps (if needed)
 
-- Monitor production deployment
-- Test QR modal behavior on production server
-- Gather user feedback for improvements
+- Test standalone QR generator on production
+- Verify ffmpeg installation on server
+- Monitor table corner detection functionality
+

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import TableCornerPicker from "./TableCornerPicker";
+import QRModal from "./QRModal";
 
 interface CheckDeviceResult {
   id: string;
@@ -34,6 +35,7 @@ export default function DeviceForm({ onSuccess }: Props) {
   const [step, setStep] = useState<Step>("idle");
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState(false);
+  const [qrData, setQrData] = useState<{ cameraId: string; clubName: string } | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rtspDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -163,8 +165,10 @@ export default function DeviceForm({ onSuccess }: Props) {
 
       setStep("done");
       setSaveMessage("Thiết bị đã được lưu thành công!");
+      setQrData({ cameraId: data.camera._id, clubName: clubName.trim() });
       onSuccess();
 
+      // Reset form NHƯNG giữ QR modal
       setTimeout(() => {
         setClubName("");
         setDeviceId("");
@@ -175,6 +179,7 @@ export default function DeviceForm({ onSuccess }: Props) {
         setTableCorners(null);
         setStep("idle");
         setSaveMessage("");
+        // KHÔNG reset qrData — để người dùng tự đóng modal
       }, 2000);
     } catch (err) {
       setStep("idle");
@@ -393,6 +398,15 @@ export default function DeviceForm({ onSuccess }: Props) {
         frameBase64={captureFrame}
         onConfirm={handlePickerConfirm}
         onCancel={() => setShowPicker(false)}
+      />
+    )}
+
+    {/* QR Code modal */}
+    {qrData && (
+      <QRModal
+        cameraId={qrData.cameraId}
+        clubName={qrData.clubName}
+        onClose={() => setQrData(null)}
       />
     )}
   </>

@@ -76,6 +76,12 @@ export default function QRModal({ cameraId, clubName, onClose, onSaved }: Props)
     setCopyStatus("copying");
     
     try {
+      // Check if clipboard API is available
+      if (!navigator.clipboard || !window.ClipboardItem) {
+        setCopyStatus("idle");
+        return;
+      }
+
       // Convert canvas to blob
       canvas.toBlob(async (blob) => {
         if (!blob) {
@@ -96,7 +102,6 @@ export default function QRModal({ cameraId, clubName, onClose, onSaved }: Props)
         } catch (err) {
           console.error("Failed to copy image:", err);
           setCopyStatus("idle");
-          alert("Không thể copy ảnh tự động. Vui lòng tải xuống và chia sẻ file.");
         }
       }, "image/png");
     } catch (err) {

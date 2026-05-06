@@ -138,12 +138,19 @@ function QRCodeCard({
   qrCode: QRCodeItem; 
   onDownload: (qrCode: QRCodeItem) => void;
 }) {
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "success">("idle");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "success" | "unavailable">("idle");
 
   async function handleCopyImage() {
     setCopyStatus("copying");
     
     try {
+      // Check if clipboard API is available
+      if (!navigator.clipboard || !window.ClipboardItem) {
+        setCopyStatus("unavailable");
+        setTimeout(() => setCopyStatus("idle"), 3000);
+        return;
+      }
+
       // Convert base64 to blob
       const response = await fetch(qrCode.qrImageBase64);
       const blob = await response.blob();
@@ -159,10 +166,8 @@ function QRCodeCard({
       setTimeout(() => setCopyStatus("idle"), 2000);
     } catch (err) {
       console.error("Failed to copy image:", err);
-      setCopyStatus("idle");
-      
-      // Fallback: show alert with instructions
-      alert("Không thể copy ảnh tự động. Vui lòng click chuột phải vào ảnh và chọn 'Copy Image'");
+      setCopyStatus("unavailable");
+      setTimeout(() => setCopyStatus("idle"), 3000);
     }
   }
 
@@ -183,7 +188,10 @@ function QRCodeCard({
         {/* Copy overlay hint */}
         <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/image:bg-black/10 transition">
           <div className="opacity-0 group-hover/image:opacity-100 transition bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg">
-            {copyStatus === "copying" ? "Đang copy..." : copyStatus === "success" ? "✓ Đã copy!" : "Nhấn để copy ảnh"}
+            {copyStatus === "copying" ? "Đang copy..." : 
+             copyStatus === "success" ? "✓ Đã copy!" : 
+             copyStatus === "unavailable" ? "Không khả dụng" :
+             "Nhấn để copy ảnh"}
           </div>
         </div>
       </div>
@@ -198,6 +206,13 @@ function QRCodeCard({
         <div className="text-xs text-white/30">
           {new Date(qrCode.createdAt).toLocaleString("vi-VN")}
         </div>
+
+        {/* Clipboard unavailable notice */}
+        {copyStatus === "unavailable" && (
+          <div className="text-xs text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-lg px-2 py-1.5">
+            💡 Copy ảnh cần HTTPS. Vui lòng dùng "Tải xuống"
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-2">
@@ -227,6 +242,13 @@ function QRCodeCard({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 Đã copy!
+              </>
+            ) : copyStatus === "unavailable" ? (
+              <>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Không khả dụng
               </>
             ) : (
               <>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import TableCornerPicker from "./TableCornerPicker";
 
 interface CheckDeviceResult {
   id: string;
@@ -26,7 +27,9 @@ export default function DeviceForm({ onSuccess }: Props) {
 
   const [rtspStatus, setRtspStatus] = useState<RtspStatus>("idle");
   const [tableCorners, setTableCorners] = useState<number[][] | null>(null);
-  const [drawingCorners, setDrawingCorners] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [captureFrame, setCaptureFrame] = useState<string | null>(null);
+  const [capturingFrame, setCapturingFrame] = useState(false);
 
   const [step, setStep] = useState<Step>("idle");
   const [saveMessage, setSaveMessage] = useState("");
@@ -104,26 +107,31 @@ export default function DeviceForm({ onSuccess }: Props) {
     };
   }, [rtspURL]);
 
-  // ── Draw table corners ────────────────────────────────────────────────────
-  async function handleDrawCorners() {
+  // ── Capture frame + open picker ──────────────────────────────────────────
+  async function handleOpenPicker() {
     if (!rtspURL.trim()) return;
-    setDrawingCorners(true);
-    setTableCorners(null);
+    setCapturingFrame(true);
     try {
-      const res = await fetch("/api/run-table-corners", {
+      const res = await fetch("/api/capture-frame", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rtspUrl: rtspURL.trim() }),
       });
       const data = await res.json();
-      if (data.ok && data.corners) {
-        setTableCorners(data.corners);
+      if (data.ok && data.frame) {
+        setCaptureFrame(data.frame);
+        setShowPicker(true);
       }
     } catch {
-      // silent — corners sẽ dùng default nếu không lấy được
+      // silent
     } finally {
-      setDrawingCorners(false);
+      setCapturingFrame(false);
     }
+  }
+
+  function handlePickerConfirm(corners: number[][]) {
+    setTableCorners(corners);
+    setShowPicker(false);
   }
 
   // ── Save to MongoDB ───────────────────────────────────────────────────────
@@ -182,6 +190,7 @@ export default function DeviceForm({ onSuccess }: Props) {
   const canSubmit = verified && rtspOk && clubName.trim() !== "" && !isSaving && !isDone;
 
   return (
+    <>
     <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-2xl overflow-hidden">
       {/* Card header */}
       <div className="bg-gradient-to-r from-blue-600/30 to-blue-500/20 px-6 py-5 border-b border-white/10">
@@ -303,21 +312,21 @@ export default function DeviceForm({ onSuccess }: Props) {
           {rtspOk && (
             <button
               type="button"
-              onClick={handleDrawCorners}
-              disabled={drawingCorners || isSaving || isDone}
+              onClick={handleOpenPicker}
+              disabled={capturingFrame || isSaving || isDone}
               className="mt-2 flex items-center gap-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30
                 px-3 py-2 text-xs font-medium text-blue-300 transition
                 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {drawingCorners ? (
+              {capturingFrame ? (
                 <>
                   <Spinner className="text-blue-300" />
-                  Đang vẽ góc bàn...
+                  Đang lấy frame...
                 </>
               ) : tableCorners ? (
                 <>
                   <CheckIcon className="h-3.5 w-3.5" />
-                  Đã lấy góc bàn ({tableCorners.length} điểm)
+                  Đã xác định góc bàn — Vẽ lại
                 </>
               ) : (
                 <>
@@ -325,7 +334,7 @@ export default function DeviceForm({ onSuccess }: Props) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  Vẽ góc bàn
+                  Xác định góc bàn
                 </>
               )}
             </button>
@@ -377,6 +386,16 @@ export default function DeviceForm({ onSuccess }: Props) {
         )}
       </form>
     </div>
+
+    {/* Table corner picker modal */}
+    {showPicker && captureFrame && (
+      <TableCornerPicker
+        frameBase64={captureFrame}
+        onConfirm={handlePickerConfirm}
+        onCancel={() => setShowPicker(false)}
+      />
+    )}
+  </>
   );
 }
 

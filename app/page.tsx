@@ -1,9 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import DeviceForm from "@/components/DeviceForm";
+import DeviceList from "@/components/DeviceList";
+import QRCodeList from "@/components/QRCodeList";
 import StandaloneQR from "@/components/StandaloneQR";
 
 export default function Home() {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  function handleSuccess() {
+    setRefreshKey((prev) => prev + 1);
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
       {/* Header */}
@@ -22,8 +31,10 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <DeviceForm onSuccess={() => {}} />
+      <main className="mx-auto max-w-6xl px-4 py-8 space-y-8">
+        <DeviceForm onSuccess={handleSuccess} />
+        <DeviceList key={`devices-${refreshKey}`} />
+        <QRCodeList key={`qrcodes-${refreshKey}`} />
       </main>
 
       <StandaloneQR />

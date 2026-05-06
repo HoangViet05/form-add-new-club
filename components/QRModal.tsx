@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
 export default function QRModal({ cameraId, clubName, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const url = `https://academy.arenabilliard.com?cameraId=${cameraId}`;
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "success">("idle");
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -22,13 +23,69 @@ export default function QRModal({ cameraId, clubName, onClose }: Props) {
     });
   }, [url]);
 
-  function handleDownload() {
+  async function handleDownload() {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    
+    const imageBase64 = canvas.toDataURL("image/png");
+    
+    // Lưu QR code vào database
+    try {
+      await fetch("/api/qrcodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cameraId,
+          name: clubName,
+          qrImageBase64: imageBase64,
+          url,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to save QR code:", err);
+    }
+    
+    // Tải xuống file
     const link = document.createElement("a");
     link.download = `qr-${clubName.replace(/\s+/g, "-")}.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.href = imageBase64;
     link.click();
+  }
+
+  async function handleCopyImage() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    setCopyStatus("copying");
+    
+    try {
+      // Convert canvas to blob
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setCopyStatus("idle");
+          return;
+        }
+        
+        try {
+          // Copy to clipboard
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              [blob.type]: blob
+            })
+          ]);
+          
+          setCopyStatus("success");
+          setTimeout(() => setCopyStatus("idle"), 2000);
+        } catch (err) {
+          console.error("Failed to copy image:", err);
+          setCopyStatus("idle");
+          alert("Không thể copy ảnh tự động. Vui lòng tải xuống và chia sẻ file.");
+        }
+      }, "image/png");
+    } catch (err) {
+      console.error("Failed to convert canvas:", err);
+      setCopyStatus("idle");
+    }
   }
 
   function handleCopy() {
@@ -59,9 +116,29 @@ export default function QRModal({ cameraId, clubName, onClose }: Props) {
 
         {/* QR Code */}
         <div className="flex flex-col items-center gap-4 px-5 py-6">
-          <div className="rounded-xl bg-white p-3 shadow-lg shadow-blue-500/10">
+          <div 
+            className="rounded-xl bg-white p-3 shadow-lg shadow-blue-500/10 cursor-pointer relative group/qr"
+            onClick={handleCopyImage}
+            title="Nhấn để copy ảnh"
+          >
             <canvas ref={canvasRef} />
+            
+            {/* Copy overlay hint */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/qr:bg-black/10 transition rounded-xl">
+              <div className="opacity-0 group-hover/qr:opacity-100 transition bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg">
+                {copyStatus === "copying" ? "Đang copy..." : copyStatus === "success" ? "✓ Đã copy!" : "Nhấn để copy ảnh"}
+              </div>
+            </div>
           </div>
+          
+          {copyStatus === "success" && (
+            <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Đã copy ảnh! Bạn có thể paste vào bất kỳ đâu
+            </p>
+          )}
         </div>
 
         {/* Footer */}
@@ -76,6 +153,30 @@ export default function QRModal({ cameraId, clubName, onClose }: Props) {
                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Tải QR Code
+          </button>
+          <button
+            onClick={handleCopyImage}
+            disabled={copyStatus === "copying"}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500
+              py-2.5 text-sm font-bold text-white transition shadow-lg shadow-emerald-500/20
+              disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {copyStatus === "success" ? (
+              <>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Đã copy!
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copy Ảnh
+              </>
+            )}
           </button>
           <button
             onClick={onClose}

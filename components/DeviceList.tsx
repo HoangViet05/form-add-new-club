@@ -18,17 +18,20 @@ export default function DeviceList() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/devices")
-      .then((r) => r.json())
-      .then((data) => {
-        setDevices(data.devices ?? []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Không thể tải danh sách thiết bị.");
-        setLoading(false);
-      });
+    fetchDevices();
   }, []);
+
+  async function fetchDevices() {
+    try {
+      const res = await fetch("/api/devices");
+      const data = await res.json();
+      setDevices(data.devices ?? []);
+      setLoading(false);
+    } catch {
+      setError("Không thể tải danh sách thiết bị.");
+      setLoading(false);
+    }
+  }
 
   if (loading) {
     return (

@@ -34,7 +34,7 @@ const CameraSchema = new Schema<ICamera>(
     rtspUrl: { type: String, required: true },
     scoreboardId: { type: String, required: true },
   },
-  { timestamps: false }
+  { timestamps: true }
 );
 
 export const Camera =

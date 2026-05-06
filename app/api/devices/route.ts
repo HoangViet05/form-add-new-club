@@ -3,6 +3,34 @@ import { connectDB } from "@/lib/mongodb";
 import { Club } from "@/models/Club";
 import { Camera } from "@/models/Camera";
 
+export async function GET() {
+  try {
+    await connectDB();
+    
+    // Lấy tất cả cameras và populate thông tin club
+    const cameras = await Camera.find()
+      .populate("clubId")
+      .sort({ _id: -1 })
+      .limit(100);
+    
+    // Format dữ liệu để trả về
+    const devices = cameras.map((camera: any) => ({
+      _id: camera._id.toString(),
+      clubName: camera.name,
+      deviceId: camera.scoreboardId,
+      rtspURL: camera.rtspUrl,
+      branchId: camera.clubId?.branchId ?? "",
+      scoreboardId: camera.scoreboardId,
+      createdAt: camera.createdAt ?? new Date().toISOString(),
+    }));
+
+    return NextResponse.json({ success: true, devices }, { status: 200 });
+  } catch (err) {
+    console.error("GET /api/devices error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

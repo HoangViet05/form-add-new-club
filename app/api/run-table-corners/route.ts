@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { spawn } from "child_process";
 import path from "path";
-
-const execAsync = promisify(exec);
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,26 +13,8 @@ export async function POST(request: NextRequest) {
 
     const scriptPath = path.join(process.cwd(), "scripts", "create_position_table.py");
 
-    // Chạy Python script, truyền rtspUrl qua argument
-    const { stdout, stderr } = await execAsync(
-      `python "${scriptPath}" --rtsp "${rtspUrl.replace(/"/g, '\\"')}"`,
-      { timeout: 60000 } // 60s timeout cho việc vẽ corners
-    );
-
-    if (stderr && !stdout) {
-      console.error("Python stderr:", stderr);
-      return NextResponse.json({ error: "Script error", detail: stderr }, { status: 500 });
-    }
-
-    // Parse JSON output từ script
-    const lastLine = stdout.trim().split("\n").pop() ?? "";
-    const result = JSON.parse(lastLine);
-
-    if (!result.corners || !Array.isArray(result.corners)) {
-      return NextResponse.json({ error: "Invalid output from script" }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, corners: result.corners });
+    const result = await runPythonScript(scriptPath, rtspUrl);
+    return NextResponse.json(result);
   } catch (err) {
     console.error("run-table-corners error:", err);
     return NextResponse.json(
@@ -43,4 +22,69 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function runPythonScript(
+  scriptPath: string,
+  rtspUrl: string
+): Promise<{ ok: boolean; corners?: number[][]; error?: string }> {
+  return new Promise((resolve) => {
+    // Dùng spawn để script có thể mở GUI window (cv2.imshow)
+    const proc = spawn("python", [scriptPath, "--rtsp", rtspUrl], {
+      // Không set timeout ở đây — người dùng cần thời gian kéo thả góc bàn
+      // GUI sẽ block cho đến khi nhấn ENTER hoặc ESC
+      windowsHide: false, // Cho phép hiện cửa sổ GUI trên Windows
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+
+    proc.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on("close", (code) => {
+      if (code !== 0) {
+        console.error("Python script stderr:", stderr);
+        // Thử parse JSON từ stdout trước (script có thể in error JSON)
+        try {
+          const parsed = JSON.parse(stdout.trim().split("\n").pop() ?? "");
+          resolve({ ok: false, error: parsed.error ?? `Exit code ${code}` });
+        } catch {
+          resolve({ ok: false, error: stderr || `Script exited with code ${code}` });
+        }
+        return;
+      }
+
+      // Lấy dòng JSON cuối cùng từ stdout
+      const lines = stdout.trim().split("\n").filter(Boolean);
+      const lastLine = lines[lines.length - 1] ?? "";
+
+      try {
+        const parsed = JSON.parse(lastLine);
+
+        if (parsed.error) {
+          resolve({ ok: false, error: parsed.error });
+          return;
+        }
+
+        if (!parsed.corners || !Array.isArray(parsed.corners)) {
+          resolve({ ok: false, error: "Script did not return corners" });
+          return;
+        }
+
+        resolve({ ok: true, corners: parsed.corners });
+      } catch {
+        resolve({ ok: false, error: `Cannot parse script output: ${lastLine}` });
+      }
+    });
+
+    proc.on("error", (err) => {
+      resolve({ ok: false, error: `Failed to start Python: ${err.message}` });
+    });
+  });
 }
